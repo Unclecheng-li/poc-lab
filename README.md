@@ -18,7 +18,8 @@ Each vulnerability directory follows a consistent layout:
 ```
 VulnClaw-PoC/
 ├── CVE-2026-XXXXX/       # One directory per CVE
-│   ├── exploit.py
+│   ├── exploit
+|   ├── build
 │   └── README.md
 ├── VULN-NAME/            # Or by vulnerability name if no CVE assigned
 │   ├── exploit.sh
