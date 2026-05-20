@@ -1,4 +1,4 @@
-# VulnClaw-PoC
+# poc-lab
 
 > PoC & reproduction scripts for recently disclosed high-severity vulnerabilities.
 
@@ -16,7 +16,7 @@ Each vulnerability directory follows a consistent layout:
 ## Directory Structure
 
 ```
-VulnClaw-PoC/
+poc-lab/
 ├── CVE-2026-XXXXX/       # One directory per CVE
 │   ├── exploit
 |   ├── build
@@ -35,8 +35,8 @@ Browse the repository root to see all available PoCs — the list grows as new v
 
 ```bash
 # Clone
-git clone https://github.com/Unclecheng-li/VulnClaw-PoC.git
-cd VulnClaw-PoC
+git clone https://github.com/Unclecheng-li/poc-lab.git
+cd poc-lab
 
 # Pick a vulnerability directory
 cd <CVE-or-NAME>
