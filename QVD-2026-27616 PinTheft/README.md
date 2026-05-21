@@ -4,11 +4,11 @@
 >
 > 这条链子的狠点不在「写了哪里」，而在「谁还以为自己拥有那一页」。`io_uring` 先把用户页 pin 住，RDS zcopy 的错误路径再把这 1024 个 pin ref 偷干净。页面被释放、被 SUID 程序页缓存重占，但 `io_uring` 手里还握着旧的 `struct page *`。最后一次 `READ_FIXED`，shellcode 就写进了 `/usr/bin/su` 的 page cache。
 
+---
 
+## 演示视频
 
 https://github.com/user-attachments/assets/971754d0-cf3b-41fc-8982-4d86e937b5be
-
-
 
 ---
 
