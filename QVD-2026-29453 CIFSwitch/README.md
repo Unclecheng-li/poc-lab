@@ -1,8 +1,11 @@
 # QVD-2026-29453 — CIFSwitch
 
-> **Linux Kernel CIFS 本地权限提升 | CVSS 3.1: 7.8 HIGH | cifs.spnego 来源校验缺失 | PoC / EXP 已公开** | [复现方法](#复现步骤)
+> **Linux Kernel CIFS 本地权限提升 | CVSS 3.1: 7.8 HIGH | cifs.spnego 来源校验缺失 | 非普遍性漏洞 | PoC / EXP 已公开** | [复现方法](#复现步骤)
 >
-> 这条链很阴。问题不是 `cifs.upcall` 自己想作恶，而是内核把一个本该只由 CIFS 客户端生成的 `cifs.spnego` 请求入口，留给了本地用户伪造。于是，一个低权限用户可以让 root 权限的 `cifs.upcall` 走进自己布置好的 mount namespace，读自己的 `nsswitch.conf`，加载自己的 `libnss_*.so.2`。然后 sudoers 就被写进去了。
+> 这条链很阴。问题不是 `cifs.upcall` 自己想作恶，而是内核把一个本该只由 CIFS 客户端生成的 `cifs.spnego` 请求入口，留给了本地用户伪造。  
+> 于是，一个低权限用户可以让 root 权限的 `cifs.upcall` 走进自己布置好的 mount namespace，读自己的 `nsswitch.conf`，加载自己的 `libnss_*.so.2`。然后 sudoers 就被写进去了。
+>
+> 但要注意，作者原文明确强调这是 **non-universal** 的本地提权：能不能打通，取决于内核版本、`cifs-utils`、未授权命名空间与默认策略是否同时满足。
 
 ---
 
@@ -11,14 +14,14 @@
 | 项目 | 内容 |
 |------|------|
 | **漏洞编号** | QVD-2026-29453 |
-| **漏洞代号** | CIFSwitch |
-| **漏洞类型** | 本地权限提升 (LPE) |
+| **漏洞代号** | CIFSwitch（作者原文定性为 **non-universal Linux local root vulnerability**） |
+| **漏洞类型** | 本地权限提升 (LPE)，且属于非普遍性漏洞，强依赖具体发行版与配置组合 |
 | **CVSS 3.1** | 7.8 HIGH（奇安信通告口径） |
 | **影响组件** | Linux Kernel CIFS / SMB client、`cifs.spnego` key type、`cifs.upcall` |
 | **根因类型** | 缺少 `vet_description` 来源校验，信任用户态伪造的 `cifs.spnego` description |
 | **上游补丁** | `3da1fdf4efbc490041eb4f836bf596201203f8f2` (`smb: client: reject userspace cifs.spnego descriptions`) |
 | **发现方** | Asim Manizada（公开披露 / PoC） |
-| **披露日期** | 2026-05-27 / 2026-05-28（公开技术细节与 PoC）；2026-05-29 多家厂商通告跟进 |
+| **披露日期** | 作者原文发布于 2026-05-27；2026-05-29 多家厂商通告跟进 |
 | **利用条件** | 本地低权限用户 + `cifs-utils` / `cifs.upcall` + `cifs.spnego` request-key 规则 + 非特权 user/mount namespace 可用 |
 | **在野利用** | 奇安信通告口径：暂未发现 |
 | **仓库 PoC** | [`exploit/exp.py`](exploit/exp.py) |
@@ -42,7 +45,7 @@ Linux Kernel commit < 3da1fdf4efbc490041eb4f836bf596201203f8f2
 | 条件 | 说明 |
 |------|------|
 | Kernel CIFS 支持 | `cifs` 文件系统已注册、可加载或内置 |
-| `cifs-utils` | 需要存在 `cifs.upcall`，公开通告重点提到 `cifs-utils >= 6.14` |
+| `cifs-utils` | 需要存在 `cifs.upcall`，公开通告重点提到 `cifs-utils >= 6.14`；作者原文额外强调，其他 CVE 的 backport 可能把问题带回旧版 `cifs-utils`，因此不能只机械看主版本 |
 | request-key 规则 | `/etc/request-key.conf` 或 `/etc/request-key.d/` 中存在 `cifs.spnego` → `cifs.upcall` 规则 |
 | 用户命名空间 | 非特权用户可创建 user namespace / mount namespace |
 | LSM 策略 | AppArmor / SELinux 没有阻断该利用路径 |
@@ -72,7 +75,7 @@ CloudLinux 文章还指出：CloudLinux 7h / 8 / 9 / 10 等环境在安装 `cifs
 | 没有 `cifs.spnego` request-key 规则 | 伪造请求无法调起 `cifs.upcall` |
 | 禁用非特权 user namespace | 攻击者无法准备可控 user/mount namespace |
 | SELinux / AppArmor 默认阻断 | LSM 策略拦截 namespace 或 helper 行为 |
-| `cifs-utils < 6.14` | 公开通告称旧版本缺少命名空间切换相关路径，通常不受该链影响 |
+| `cifs-utils < 6.14` | 常见口径认为旧版本通常不受影响，但作者原文指出：部分旧版因 backport 其他 CVE 修复，也可能引入相关路径，因此不能一刀切 |
 
 > **注意**：发行版回补策略可能不同。最终判断应以发行版安全公告、内核补丁状态和本机实际配置为准。
 
@@ -380,7 +383,7 @@ ver=0x2;host=example.com;ip4=127.0.0.1;sec=krb5;uid=0x0;creduid=0x0;pid=<pid>;up
 | 字段 | 作用 |
 |------|------|
 | `pid=<pid>` | 指向攻击者控制 namespace 中的触发进程 |
-| `upcall_target=app` | 诱导 `cifs.upcall` 切到应用进程 namespace |
+| `upcall_target=app` | 诱导 `cifs.upcall` 进入 `upcall_target=app` 分支，并按伪造 `pid` 调用 `switch_to_process_ns(arg->pid)` 切到攻击者控制的进程命名空间 |
 | `user=root` | 触发 root 用户解析，进入 `getpwuid()` / NSS 路径 |
 | `uid=0x0;creduid=0x0` | 伪造 root 相关身份字段，匹配 cifs.upcall 预期格式 |
 
@@ -693,8 +696,7 @@ ls -la /var/tmp/ | grep cifs_upcall_rootsh
 | 日期 | 事件 |
 |------|------|
 | 2007 | CIFS / SPNEGO upcall 相关代码路径进入长期存在状态（公开文章口径） |
-| 2026-05-27 | 奇安信通告口径：漏洞公开时间 |
-| 2026-05-28 | Asim Manizada 公开 CIFSwitch 技术细节 / PoC（公开文章口径） |
+| 2026-05-27 | 作者 Asim Viladi Oglu Manizada 公开 CIFSwitch 原始技术说明与 PoC |
 | 2026-05-29 | 腾讯云、奇安信、CloudLinux 等通告跟进 |
 | 2026-05-29 | CloudLinux 发布 CIFSwitch 缓解与内核更新说明 |
 | 2026-05-31 | 本仓库根据 Copy Fail README 模板补全文档 |
@@ -706,6 +708,7 @@ ls -la /var/tmp/ | grep cifs_upcall_rootsh
 | 来源 | 链接 |
 |------|------|
 | 漏洞披露原文 | https://heyitsas.im/posts/cifswitch/ |
+| 作者公开 PoC 仓库 | https://github.com/manizada/CIFSwitch |
 | 上游 Linux 修复 commit | https://github.com/torvalds/linux/commit/3da1fdf4efbc490041eb4f836bf596201203f8f2 |
 | 腾讯云技术通告 | https://cloud.tencent.com/developer/article/2676151 |
 | 腾讯云安全公告 | https://cloud.tencent.com/announce/detail/2306 |
@@ -713,7 +716,7 @@ ls -la /var/tmp/ | grep cifs_upcall_rootsh
 | CloudLinux 缓解与更新说明 | https://blog.cloudlinux.com/cifswitch-mitigation-and-kernel-update |
 | 本仓库 PoC | [`exploit/exp.py`](exploit/exp.py) |
 
-- 以上链接最后访问时间：2026-05-31
+- 以上链接最后访问时间：2026-06-01
 - 当前公开资料中尚未确认 CVE 编号；本仓库按奇安信 QVD 编号 `QVD-2026-29453` 归档
 - 各发行版修复版本请以对应厂商安全公告为准
 
