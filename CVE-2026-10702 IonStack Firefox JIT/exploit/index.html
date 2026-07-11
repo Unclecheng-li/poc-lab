@@ -1,0 +1,354 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IonStack</title>
+<script>
+const MAX_ATTEMPTS = 3;
+const ATTEMPT_TIMEOUT_MS = 6500;
+const RUN_ID = Date.now().toString(36) + Math.random().toString(36).slice(2);
+const queryParams = new URLSearchParams(location.search);
+
+const INTRO_TEXT = "[*] firefox 151.0, still alive :)\nExploit made with love by:";
+const BANNER_TEXT = `                                           bbbbbbbb                                                                                             
+NNNNNNNN        NNNNNNNN                   b::::::b                                 SSSSSSSSSSSSSSS                                         
+N:::::::N       N::::::N                   b::::::b                               SS:::::::::::::::S                                        
+N::::::::N      N::::::N                   b::::::b                              S:::::SSSSSS::::::S                                        
+N:::::::::N     N::::::N                    b:::::b                              S:::::S     SSSSSSS                                        
+N::::::::::N    N::::::N    eeeeeeeeeeee    b:::::bbbbbbbbb    uuuuuu    uuuuuu  S:::::S                eeeeeeeeeeee        cccccccccccccccc
+N:::::::::::N   N::::::N  ee::::::::::::ee  b::::::::::::::bb  u::::u    u::::u  S:::::S              ee::::::::::::ee    cc:::::::::::::::c
+N:::::::N::::N  N::::::N e::::::eeeee:::::eeb::::::::::::::::b u::::u    u::::u   S::::SSSS          e::::::eeeee:::::ee c:::::::::::::::::c
+N::::::N N::::N N::::::Ne::::::e     e:::::eb:::::bbbbb:::::::bu::::u    u::::u    SS::::::SSSSS    e::::::e     e:::::ec:::::::cccccc:::::c
+N::::::N  N::::N:::::::Ne:::::::eeeee::::::eb:::::b    b::::::bu::::u    u::::u      SSS::::::::SS  e:::::::eeeee::::::ec::::::c     ccccccc
+N::::::N   N:::::::::::Ne:::::::::::::::::e b:::::b     b:::::bu::::u    u::::u         SSSSSS::::S e:::::::::::::::::e c:::::c             
+N::::::N    N::::::::::Ne::::::eeeeeeeeeee  b:::::b     b:::::bu::::u    u::::u              S:::::Se::::::eeeeeeeeeee  c:::::c             
+N::::::N     N:::::::::Ne:::::::e           b:::::b     b:::::bu:::::uuuu:::::u              S:::::Se:::::::e           c::::::c     ccccccc
+N::::::N      N::::::::Ne::::::::e          b:::::bbbbbb::::::bu:::::::::::::::uuSSSSSSS     S:::::Se::::::::e          c:::::::cccccc:::::c
+N::::::N       N:::::::N e::::::::eeeeeeee  b::::::::::::::::b  u:::::::::::::::uS::::::SSSSSS:::::S e::::::::eeeeeeee   c:::::::::::::::::c
+N::::::N        N::::::N  ee:::::::::::::e  b:::::::::::::::b    uu::::::::uu:::uS:::::::::::::::SS   ee:::::::::::::e    cc:::::::::::::::c
+NNNNNNNN         NNNNNNN    eeeeeeeeeeeeee  bbbbbbbbbbbbbbbb       uuuuuuuu  uuuu SSSSSSSSSSSSSSS       eeeeeeeeeeeeee      cccccccccccccccc`;
+
+let done = false;
+let attempt = 0;
+let timer = 0;
+let released = false;
+let wakeLock = null;
+let confirmed = false;
+let uiInstalled = false;
+let uiContainer = null;
+let liveElement = null;
+let logElement = null;
+let ansiScriptRequested = false;
+let lastLiveText = "";
+let lastLogText = "";
+const frames = [];
+
+function childUrl(n) {
+  const dir = location.pathname.replace(/[^/]*$/, "");
+  let url = dir + "exploit.html?run=" + encodeURIComponent(RUN_ID) + "&attempt=" + n;
+  return url + "#" + (location.hash ? location.hash.slice(1) : "4,15,");
+}
+
+function emitLine(line) {
+  try {
+    if (typeof dump === "function") {
+      dump(line + "\n");
+    }
+  } catch (e) {}
+  try {
+    if (typeof console !== "undefined" && console.log) {
+      console.log(line);
+    }
+  } catch (e) {}
+}
+
+function requestAnsiRenderer() {
+  if (ansiScriptRequested) {
+    return;
+  }
+  ansiScriptRequested = true;
+  const script = document.createElement("script");
+  script.src = "ansi.js";
+  script.onload = () => {
+    if (lastLogText) {
+      renderText(logElement, lastLogText);
+      renderText(liveElement, lastLiveText);
+      scrollToLastLine();
+    }
+  };
+  script.onerror = () => {};
+  document.head.appendChild(script);
+}
+
+function renderText(element, text) {
+  if (!element) {
+    return;
+  }
+  const value = String(text || "");
+  element.textContent = "";
+  if ((value.indexOf("\x1b[") >= 0 || value.indexOf("\\033[") >= 0 || value.indexOf("\\x1b[") >= 0) &&
+      typeof window.renderAnsiToFragment === "function") {
+    try {
+      element.appendChild(window.renderAnsiToFragment(value, document));
+      return;
+    } catch (e) {}
+  }
+  element.textContent = value;
+}
+
+function scrollToLastLine() {
+  if (!logElement) {
+    return;
+  }
+  requestAnimationFrame(() => {
+    try {
+      const rect = logElement.getBoundingClientRect();
+      const y = Math.max(0, window.pageYOffset + rect.bottom - window.innerHeight);
+      scrollTo(0, Math.ceil(y));
+    } catch (e) {}
+  });
+}
+
+function ensureDeferredUi() {
+  if (uiInstalled) {
+    return;
+  }
+  uiInstalled = true;
+  requestAnsiRenderer();
+  if (!document.getElementById("ui-style")) {
+    const style = document.createElement("style");
+    style.id = "ui-style";
+    style.textContent = [
+      "#intro { font-family: monospace; font-size: 15px; white-space: pre-wrap; }",
+      "#live { font-family: monospace; font-size: 15px; white-space: pre-wrap; }",
+      "#banner { font-family: monospace; font-size: 4.5px; white-space: pre; }",
+      "#log { font-family: monospace; font-size: 15px; white-space: pre-wrap; }",
+    ].join("\n");
+    document.head.appendChild(style);
+  }
+
+  const body = document.body || document.documentElement.appendChild(document.createElement("body"));
+  uiContainer = document.createElement("div");
+  uiContainer.id = "ui";
+  body.appendChild(uiContainer);
+
+  const intro = document.createElement("pre");
+  intro.id = "intro";
+  intro.textContent = INTRO_TEXT;
+  uiContainer.appendChild(intro);
+
+  const live = document.createElement("pre");
+  live.id = "live";
+  uiContainer.appendChild(live);
+  liveElement = live;
+
+  const banner = document.createElement("pre");
+  banner.id = "banner";
+  banner.textContent = BANNER_TEXT;
+  uiContainer.appendChild(banner);
+
+  const log = document.createElement("pre");
+  log.id = "log";
+  uiContainer.appendChild(log);
+  logElement = log;
+}
+
+function renderDeferredUi(lines, finalMessage, emitLogs) {
+  ensureDeferredUi();
+  let liveText = "";
+  const logLines = [];
+
+  const allLines = lines.slice();
+  if (finalMessage) {
+    allLines.push(finalMessage);
+  }
+  for (let i = 0; i < allLines.length; i++) {
+    if (emitLogs) {
+      emitLine(allLines[i]);
+    }
+    if (String(allLines[i]).indexOf("command_result=") === 0) {
+      liveText = allLines[i];
+    }
+    logLines.push(allLines[i]);
+    document.title = allLines[i];
+  }
+  lastLiveText = liveText;
+  lastLogText = logLines.join("\n");
+  renderText(liveElement, lastLiveText);
+  renderText(logElement, lastLogText);
+  scrollToLastLine();
+}
+
+function installDeferredUi(lines, finalMessage) {
+  renderDeferredUi(lines, finalMessage, true);
+}
+
+async function keepScreenAwake() {
+  if (!navigator.wakeLock || wakeLock) {
+    return;
+  }
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+  } catch (e) {}
+}
+
+function cleanupFrames() {
+  for (let i = 0; i < frames.length; i++) {
+    try {
+      frames[i].remove();
+    } catch (e) {}
+  }
+  frames.length = 0;
+}
+
+function removeFrameForWindow(source) {
+  for (let i = 0; i < frames.length; i++) {
+    let win = null;
+    try {
+      win = frames[i].contentWindow;
+    } catch (e) {}
+    if (win === source) {
+      try {
+        frames[i].remove();
+      } catch (e) {}
+      frames.splice(i, 1);
+      return true;
+    }
+  }
+  return false;
+}
+
+function releasePage() {
+  if (released) {
+    return;
+  }
+  released = true;
+  done = true;
+  clearTimeout(timer);
+  if (wakeLock) {
+    try {
+      wakeLock.release();
+    } catch (e) {}
+    wakeLock = null;
+  }
+  cleanupFrames();
+  if (document.body) {
+    document.body.textContent = "";
+  }
+  setTimeout(() => {
+    try {
+      location.replace("about:blank");
+    } catch (e) {}
+  }, 0);
+}
+
+function releaseWhenHidden() {
+  if (document.hidden) {
+    releasePage();
+  }
+}
+
+function startAttempt() {
+  if (done || confirmed || attempt >= MAX_ATTEMPTS) {
+    return;
+  }
+  attempt++;
+  const frame = document.createElement("iframe");
+  frame.style.position = "fixed";
+  frame.style.left = "0";
+  frame.style.top = "0";
+  frame.style.width = "1px";
+  frame.style.height = "1px";
+  frame.style.opacity = "0.01";
+  frame.style.pointerEvents = "none";
+  frame.style.border = "0";
+  frame.src = childUrl(attempt);
+  frames.push(frame);
+  (document.body || document.documentElement.appendChild(document.createElement("body"))).appendChild(frame);
+  timer = setTimeout(() => {
+    if (!done) {
+      try {
+        frame.remove();
+      } catch (e) {}
+      startAttempt();
+    }
+  }, ATTEMPT_TIMEOUT_MS);
+}
+
+addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || data.run !== RUN_ID || done) {
+    return;
+  }
+  if (data.type === "device") {
+    clearTimeout(timer);
+    const deviceId = String(data.deviceId || data.fingerprint || "").trim();
+    const isSupported = data.isSupported === true;
+    const ok = confirm(
+      "Your device ID is: " + deviceId + "\n\n" +
+      (isSupported ?
+        "Your device is supported, but it may reboot. Continue? (Should be >95% success)" :
+        "Your device is not supported and will reboot. Continue?")
+    );
+    if (!ok) {
+      done = true;
+      cleanupFrames();
+      return;
+    }
+    const finalOk = confirm("Are you sure? Save your work before clicking OK. Click Cancel to stop.");
+    if (!finalOk) {
+      done = true;
+      cleanupFrames();
+      return;
+    }
+    confirmed = true;
+    try {
+      event.source.postMessage({
+        type: "decision",
+        run: RUN_ID,
+        attempt: data.attempt,
+        ok: true,
+      }, "*");
+    } catch (e) {
+      done = true;
+      cleanupFrames();
+      return;
+    }
+    return;
+  }
+  if (data.type === "stop") {
+    done = true;
+    clearTimeout(timer);
+    cleanupFrames();
+    return;
+  }
+  if (data.type === "fail") {
+    clearTimeout(timer);
+    if (confirmed) {
+      done = true;
+      cleanupFrames();
+      return;
+    }
+    removeFrameForWindow(event.source);
+    startAttempt();
+    return;
+  }
+  if (data.type === "progress") {
+    clearTimeout(timer);
+    renderDeferredUi(Array.isArray(data.lines) ? data.lines : [], data.finalMessage || "", false);
+    return;
+  }
+  if (data.type !== "success") {
+    return;
+  }
+  done = true;
+  clearTimeout(timer);
+  cleanupFrames();
+  installDeferredUi(Array.isArray(data.lines) ? data.lines : [], data.finalMessage || "");
+  alert("Done. Please manually verify the result.");
+});
+
+addEventListener("visibilitychange", releaseWhenHidden);
+addEventListener("pagehide", releasePage);
+keepScreenAwake();
+startAttempt();
+</script>
