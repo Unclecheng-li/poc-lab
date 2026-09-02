@@ -29,9 +29,20 @@ poc-lab/
 └── ...
 ```
 
-目录按 **CVE 编号** 组织（如 `CVE-2026-31431/`）。若漏洞暂无 CVE 编号，则使用公开名称（如 `RedSun/`、`YellowKey/`）。
+漏洞目录按 **主题分类** 收纳于根目录的分类文件夹下，每个分类内含索引 `README.md`；单个漏洞目录命名保持 CVE 编号优先（如 `CVE-2026-31431/`），无 CVE 则用公开名称。
 
-浏览仓库根目录即可查看所有可用 PoC —— 随着新漏洞的披露与复现，列表会持续增长。
+| 分类 | 内容 |
+|------|------|
+| `DeepSeek Harness/` | DeepSeek Harness（AI Agent 框架）系列漏洞（6） |
+| `Linux Kernel/` | Linux 内核提权 / 逃逸 / DoS（14） |
+| `Web Applications/` | Web 应用 / 管理面板 / CMS（3） |
+| `Databases/` | 数据库 / KV 存储（2） |
+| `Web Servers & Protocols/` | Web 服务器与网络协议（2） |
+| `Browsers/` | Chrome / Firefox 浏览器（2） |
+| `AI Infrastructure/` | AI 基础设施（1） |
+| `Desktop & Client Apps/` | 桌面 / 客户端应用与媒体库（2） |
+
+浏览各分类文件夹即可查看所有可用 PoC —— 随着新漏洞的披露与复现，列表会持续增长。
 
 ## 快速开始
 

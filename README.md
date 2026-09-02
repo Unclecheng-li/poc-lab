@@ -29,9 +29,20 @@ poc-lab/
 └── ...
 ```
 
-Directories are organized by **CVE identifier** (e.g. `CVE-2026-31431/`). When a vulnerability has no assigned CVE, use its public name (e.g. `RedSun/`, `YellowKey/`).
+Vulnerability directories are grouped into **topic categories** at the repo root; each category folder ships an index `README.md`. Individual directories keep CVE-first naming (e.g. `CVE-2026-31431/`), or a public name when no CVE was assigned.
 
-Browse the repository root to see all available PoCs — the list grows as new vulnerabilities are disclosed and reproduced.
+| Category | Contents |
+|----------|----------|
+| `DeepSeek Harness/` | DeepSeek Harness (AI agent framework) series (6) |
+| `Linux Kernel/` | Linux kernel LPE / escapes / DoS (14) |
+| `Web Applications/` | Web apps / panels / CMS (3) |
+| `Databases/` | Databases / KV stores (2) |
+| `Web Servers & Protocols/` | Web servers & network protocols (2) |
+| `Browsers/` | Chrome / Firefox browsers (2) |
+| `AI Infrastructure/` | AI infrastructure (1) |
+| `Desktop & Client Apps/` | Desktop / client apps & media libs (2) |
+
+Browse each category folder to see all available PoCs — the list grows as new vulnerabilities are disclosed and reproduced.
 
 ## Quick Start
 
