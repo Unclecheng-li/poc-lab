@@ -1,0 +1,83 @@
+# php2shell Lab Environment
+
+Docker-based multi-version lab for reproducing CVE-2026-109618 / CVE-2026-109619.
+Covers the full version matrix from PHP 5.6 through 8.4, plus a patched target for differential testing.
+
+## Setup
+
+```bash
+chmod +x setup.sh && ./setup.sh
+# or: docker compose up -d
+```
+
+## Version Matrix
+
+### FPM + nginx
+
+| Port | PHP Version | Status | Chains |
+|------|-------------|--------|--------|
+| 18056 | 5.6.40 | EOL — no fix | A, B, C, E |
+| 18074 | 7.4.33 | EOL — no fix | A, B, C, E |
+| 18080 | 8.0.30 | EOL — no fix | A, B, C, E |
+| 18081 | 8.1.31 | EOL — no fix | A, B, C, E |
+| 18082 | 8.2.34 | **Vulnerable** (last before 8.2.35 patch) | A, B, C, E |
+| 18083 | 8.3.35 | **Vulnerable** (last before 8.3.36 patch) | A, B, C, E |
+| 18084 | 8.4.26 | **Vulnerable** (last before 8.4.27 patch) | A, B, C, E |
+| 18085 | 8.2.35 | **Patched** | Differential testing |
+
+### Apache mod_php (Chain D — OOM)
+
+| Port | PHP Version | Status |
+|------|-------------|--------|
+| 18091 | 8.2.34 | **Vulnerable** |
+| 18092 | 5.6.40 | EOL — no fix |
+| 18093 | 7.4.33 | EOL — no fix |
+
+## Endpoints
+
+| Path | Purpose |
+|------|---------|
+| `/index.php` | Default — calls `session_start()` |
+| `/nosession.php` | No session — plain PHP info |
+| `/vuln.php?page=FILE` | LFI sink — `include($page)` (Chain A) |
+| `/session_oom.php` | Calls `session_start()` — OOM if session is huge (Chain E) |
+| `/app_serialize.php` | Sets `session.serialize_handler=php_serialize` (Chain C polluter) |
+| `/destruct_test.php` | Defines `Evil` class with `__destruct` + `session_start()` (Chain C trigger) |
+| `/fatal.php` | Allocates until OOM (testing) |
+| `/app/upload.php` | Under `.user.ini` with `php_serialize` handler |
+| `/api/endpoint.php` | Under `.user.ini` with `php` handler + `Evil` class |
+
+## Running Exploits
+
+```bash
+cd ../exploit
+
+# Chain A — session injection + LFI
+# Works on ALL versions including patched (app-level bug, not fixed by patch)
+python3 chain_a_session_lfi.py --target http://127.0.0.1:18056   # PHP 5.6
+python3 chain_a_session_lfi.py --target http://127.0.0.1:18074   # PHP 7.4
+python3 chain_a_session_lfi.py --target http://127.0.0.1:18082   # PHP 8.2.34
+python3 chain_a_session_lfi.py --target http://127.0.0.1:18085   # PHP 8.2.35 patched — still works
+
+# Chain C — handler mismatch → __destruct RCE
+python3 chain_c_mismatch_rce.py --target http://127.0.0.1:18082  # PHP 8.2.34 — RCE
+python3 chain_c_mismatch_rce.py --target http://127.0.0.1:18085  # PHP 8.2.35 — blocked by patch
+
+# Chain D — OOM on Apache mod_php (send oversized multipart POST)
+# Port 18091 (8.2.34), 18092 (5.6.40), 18093 (7.4.33)
+```
+
+## Notes
+
+- Vulnerability exists from PHP 5.4.0 (2012) — `session.upload_progress` was introduced there
+- EOL versions (5.6, 7.4, 8.0, 8.1) have no official fix and never will
+- Community backports exist for 8.0/8.1: https://github.com/Anton-Barinov/php2shell-patches
+- FPM is configured with `pm=static, max_children=1` for deterministic Chain C/E testing
+- Apache mod_php has `memory_limit=32M` for easy Chain D OOM triggering
+
+## Cleanup
+
+```bash
+docker compose down -v
+rm -rf webroot/
+```

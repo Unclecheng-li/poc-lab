@@ -10,7 +10,7 @@
   <a href="https://github.com/Unclecheng-li/poc-lab/stargazers"><img src="https://img.shields.io/github/stars/Unclecheng-li/poc-lab?style=social" alt="Stars"></a>
   <a href="https://github.com/Unclecheng-li/poc-lab/forks"><img src="https://img.shields.io/github/forks/Unclecheng-li/poc-lab?style=social" alt="Forks"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Unclecheng-li/poc-lab?color=blue" alt="License"></a>
-  <img src="https://img.shields.io/badge/PoCs-32-2ea44f" alt="PoCs">
+  <img src="https://img.shields.io/badge/PoCs-33-2ea44f" alt="PoCs">
   <img src="https://img.shields.io/badge/Linux%20Kernel-LPE%20Series-CC0000" alt="Linux Kernel LPE Series">
 </p>
 
@@ -44,7 +44,7 @@ poc-lab/
 │   ├── 脏牛系 · 页缓存污染提权   # CopyFail / DirtyFrag / DirtyCBC / ...
 │   ├── 独立 LPE · 堆利用         # PinTheft / GhostLock / CIFSwitch / ...
 │   └── KVM 虚拟化逃逸           # Januscape / Zapscape
-├── Web Applications/            # Web 面板 / CMS / 应用 (3)
+├── Web Applications/            # Web 面板 / CMS / 应用 / PHP 运行时 (4)
 ├── Databases/                   # 数据库 / KV 存储 (2)
 ├── Web Servers & Protocols/     # Web 服务器与网络协议 (2)
 ├── Browsers/                    # Chrome / Firefox 浏览器 (2)
@@ -64,7 +64,7 @@ poc-lab/
 |------|-----:|------|
 | [`DeepSeek Harness/`](./DeepSeek%20Harness/README.md) | 6 | DeepSeek Harness（AI Agent 框架）系列：配置加载 RCE / 只读沙箱泄露 / VM 沙箱逃逸 / 链式逃逸 RCE / Host 头未授权 RCE / macOS LPE |
 | [`Linux Kernel/`](./Linux%20Kernel/README.md) | 14 | 脏牛系页缓存污染提权（CopyFail / Dirty Frag / DirtyCBC / DirtyDecrypt / Fragnesia / act_pedit）、独立 LPE / 堆利用（Slab Cross-Cache / PinTheft / GhostLock / CIFSwitch / SSH Keysign）、KVM 逃逸（Januscape / Zapscape） |
-| [`Web Applications/`](./Web%20Applications/README.md) | 3 | cPanel2Shell / Nezha Monitoring / wp2shell（WordPress） |
+| [`Web Applications/`](./Web%20Applications/README.md) | 4 | cPanel2Shell / Nezha Monitoring / wp2shell（WordPress） / php2shell（PHP 运行时） |
 | [`Databases/`](./Databases/README.md) | 2 | Redis RESTORE RCE / Valkey RESP DoS |
 | [`Web Servers & Protocols/`](./Web%20Servers%20%26%20Protocols/README.md) | 2 | NGINX Rift / HTTP2 Bomb |
 | [`Browsers/`](./Browsers/README.md) | 2 | Chrome CSSFontFeatureValuesMap UAF / Firefox IonStack JIT |

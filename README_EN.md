@@ -10,7 +10,7 @@
   <a href="https://github.com/Unclecheng-li/poc-lab/stargazers"><img src="https://img.shields.io/github/stars/Unclecheng-li/poc-lab?style=social" alt="Stars"></a>
   <a href="https://github.com/Unclecheng-li/poc-lab/forks"><img src="https://img.shields.io/github/forks/Unclecheng-li/poc-lab?style=social" alt="Forks"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Unclecheng-li/poc-lab?color=blue" alt="License"></a>
-  <img src="https://img.shields.io/badge/PoCs-32-2ea44f" alt="PoCs">
+  <img src="https://img.shields.io/badge/PoCs-33-2ea44f" alt="PoCs">
   <img src="https://img.shields.io/badge/Linux%20Kernel-LPE%20Series-CC0000" alt="Linux Kernel LPE Series">
 </p>
 
@@ -44,7 +44,7 @@ poc-lab/
 │   ├── Dirty-style page-cache LPE # CopyFail / DirtyFrag / DirtyCBC / ...
 │   ├── Standalone LPE · heap     # PinTheft / GhostLock / CIFSwitch / ...
 │   └── KVM virtualization escape # Januscape / Zapscape
-├── Web Applications/            # Web panels / CMS / apps (3)
+├── Web Applications/            # Web panels / CMS / apps / PHP runtime (4)
 ├── Databases/                   # Databases / KV stores (2)
 ├── Web Servers & Protocols/     # Web servers & network protocols (2)
 ├── Browsers/                    # Chrome / Firefox browsers (2)
@@ -64,7 +64,7 @@ poc-lab/
 |----------|------:|----------|
 | [`DeepSeek Harness/`](./DeepSeek%20Harness/README.md) | 6 | DeepSeek Harness (AI agent framework): config-load RCE / read-only sandbox leak / VM sandbox escape / chained escape RCE / Host-header unauth RCE / macOS LPE |
 | [`Linux Kernel/`](./Linux%20Kernel/README.md) | 14 | Dirty-style page-cache LPE (CopyFail / Dirty Frag / DirtyCBC / DirtyDecrypt / Fragnesia / act_pedit), standalone LPE / heap (Slab Cross-Cache / PinTheft / GhostLock / CIFSwitch / SSH Keysign), KVM escapes (Januscape / Zapscape) |
-| [`Web Applications/`](./Web%20Applications/README.md) | 3 | cPanel2Shell / Nezha Monitoring / wp2shell (WordPress) |
+| [`Web Applications/`](./Web%20Applications/README.md) | 4 | cPanel2Shell / Nezha Monitoring / wp2shell (WordPress) / php2shell (PHP runtime) |
 | [`Databases/`](./Databases/README.md) | 2 | Redis RESTORE RCE / Valkey RESP DoS |
 | [`Web Servers & Protocols/`](./Web%20Servers%20%26%20Protocols/README.md) | 2 | NGINX Rift / HTTP2 Bomb |
 | [`Browsers/`](./Browsers/README.md) | 2 | Chrome CSSFontFeatureValuesMap UAF / Firefox IonStack JIT |
