@@ -7,6 +7,7 @@
 | [CVE-2026-29205 cPanel2Shell-Scanner](CVE-2026-29205%20cPanel2Shell-Scanner/README.md) | cPanel / WHM `cpdavd`：CalDAV 附件路径穿越 → 预认证 root 任意文件读（`/etc/shadow`） | 路径穿越 + root 任意读 | 无 CVSS |
 | [CVE-2026-53519 Nezha Monitoring](CVE-2026-53519%20Nezha%20Monitoring/README.md) | 哪吒监控 dashboard：前缀误配路径遍历 + JWT 伪造 → 接管面板 | 路径遍历 + 认证绕过 | CVSS 9.1 |
 | [CVE-2026-63030 wp2shell](CVE-2026-63030%20wp2shell/README.md) | WordPress：批处理路由错位 × SQLi × changeset 借权 → 预认证 RCE（建管理员） | Pre-auth RCE | CVSS 9.8 |
+| [CVE-2026-109618 php2shell](CVE-2026-109618%20php2shell/README.md) | PHP：`session.upload_progress` 文件名注入 × Zend OOM `longjmp` / FPM 残留全局状态 → 预认证 RCE | Pre-auth RCE | CVSS 9.2 |
 
 ## 免责声明
 

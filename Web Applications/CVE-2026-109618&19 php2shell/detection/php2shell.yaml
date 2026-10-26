@@ -1,0 +1,190 @@
+# ============================================================================
+# php2shell — Sigma Detection Rules
+# CVE-2026-109618 / CVE-2026-109619
+#
+# Log-based detection for web server logs and host-level events.
+# Compatible with Sigma-compatible SIEMs (Splunk, Elastic, Sentinel, etc.)
+#
+# Author: Qi Deng (@ikow)
+# Reference: https://github.com/ikow/php2shell-poc
+# ============================================================================
+
+---
+title: php2shell Exploitation Attempt via Upload Progress
+id: a1f2e3d4-5678-9abc-def0-php2shell001
+status: experimental
+description: >
+  Detects HTTP POST requests to PHP endpoints containing
+  PHP_SESSION_UPLOAD_PROGRESS in the request body. This is the primary
+  trigger for CVE-2026-109618 and CVE-2026-109619. Legitimate use of
+  this PHP feature is extremely rare in modern applications.
+author: Qi Deng (@ikow)
+date: 2026-10-21
+references:
+  - https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w
+  - https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp
+  - https://github.com/ikow/php2shell-poc
+logsource:
+  category: webserver
+detection:
+  selection:
+    cs-method: POST
+    cs-uri|endswith: '.php'
+  keywords:
+    - 'PHP_SESSION_UPLOAD_PROGRESS'
+  condition: selection and keywords
+level: high
+falsepositives:
+  - Legacy PHP applications that still use server-side upload progress tracking
+tags:
+  - attack.initial_access
+  - attack.t1190
+  - cve.2026.109618
+  - cve.2026.109619
+
+---
+title: php2shell OOM Exploitation via Oversized Multipart POST
+id: a1f2e3d4-5678-9abc-def0-php2shell002
+status: experimental
+description: >
+  Detects large multipart POST requests to PHP endpoints that result in
+  server errors. The OOM corruption path (CVE-2026-109618) sends hundreds
+  of form fields to exhaust PHP's memory_limit during multipart parsing.
+author: Qi Deng (@ikow)
+date: 2026-10-21
+references:
+  - https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w
+  - https://github.com/ikow/php2shell-poc
+logsource:
+  category: webserver
+detection:
+  selection:
+    cs-method: POST
+    cs-uri|endswith: '.php'
+    sc-status:
+      - 500
+      - 502
+      - 503
+  filter_size:
+    cs-bytes|gte: 5000000
+  condition: selection and filter_size
+level: medium
+falsepositives:
+  - Large legitimate file uploads that fail for other reasons
+tags:
+  - attack.initial_access
+  - attack.t1190
+  - cve.2026.109618
+
+---
+title: php2shell Post-Exploitation — Shell Spawned by PHP Process
+id: a1f2e3d4-5678-9abc-def0-php2shell003
+status: experimental
+description: >
+  Detects a shell or scripting interpreter spawned as a child of a PHP
+  process (php-fpm, php-cgi, apache2, httpd). This indicates successful
+  code execution following php2shell exploitation.
+author: Qi Deng (@ikow)
+date: 2026-10-21
+references:
+  - https://github.com/ikow/php2shell-poc
+logsource:
+  product: linux
+  category: process_creation
+detection:
+  selection_parent:
+    ParentImage|endswith:
+      - '/php-fpm'
+      - '/php-cgi'
+      - '/php'
+      - '/apache2'
+      - '/httpd'
+  selection_child:
+    Image|endswith:
+      - '/sh'
+      - '/bash'
+      - '/dash'
+      - '/python'
+      - '/python3'
+      - '/perl'
+      - '/ruby'
+      - '/nc'
+      - '/ncat'
+      - '/curl'
+      - '/wget'
+  condition: selection_parent and selection_child
+level: critical
+falsepositives:
+  - PHP applications that legitimately exec shell commands (cron jobs, image processing)
+tags:
+  - attack.execution
+  - attack.t1059
+  - cve.2026.109618
+  - cve.2026.109619
+
+---
+title: php2shell Session File Poisoning
+id: a1f2e3d4-5678-9abc-def0-php2shell004
+status: experimental
+description: >
+  Detects PHP code written into session files on disk. The session injection
+  attack stores PHP code in the session file via the upload filename, then
+  includes it via LFI for code execution.
+author: Qi Deng (@ikow)
+date: 2026-10-21
+references:
+  - https://github.com/ikow/php2shell-poc
+logsource:
+  product: linux
+  category: file_event
+detection:
+  selection_path:
+    TargetFilename|contains:
+      - '/sessions/sess_'
+      - '/php/sessions/sess_'
+  selection_content:
+    TargetFilename|endswith: '.php'  # false trigger guard
+  keywords_in_file:
+    - '<?php'
+    - 'system('
+    - 'eval('
+    - 'exec('
+    - 'passthru('
+    - 'shell_exec('
+  condition: selection_path and keywords_in_file
+level: critical
+falsepositives:
+  - Very unlikely — PHP code should never appear in session files
+tags:
+  - attack.persistence
+  - attack.t1505
+  - cve.2026.109618
+
+---
+title: php2shell PHP OOM Fatal Error in Logs
+id: a1f2e3d4-5678-9abc-def0-php2shell005
+status: experimental
+description: >
+  Detects PHP out-of-memory fatal errors in application or error logs.
+  Repeated OOM errors on PHP endpoints receiving POST requests may indicate
+  CVE-2026-109618 OOM exploitation attempts.
+author: Qi Deng (@ikow)
+date: 2026-10-21
+references:
+  - https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w
+logsource:
+  product: php
+  category: application
+detection:
+  keywords:
+    - 'Allowed memory size'
+    - 'exhausted'
+  filter_context:
+    - 'in Unknown on line 0'  # OOM during SAPI multipart parsing, not user code
+  condition: keywords
+level: medium
+falsepositives:
+  - Legitimate PHP scripts that consume too much memory
+tags:
+  - attack.initial_access
+  - cve.2026.109618
